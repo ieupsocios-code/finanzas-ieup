@@ -85,6 +85,13 @@ export default function Sidebar({ userRole, onLogout }) {
               <span>{item.label}</span>
             </button>
           ))}
+          <button
+              onClick={() => navigate('configuracion')}
+               className={`menu-item ${activePage === 'configuracion' ? 'active' : ''}`}
+            >
+                <Settings size={20} />
+               Configuración
+          </button>
         </nav>
 
         {/* Usuario y logout */}

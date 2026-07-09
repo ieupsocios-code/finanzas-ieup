@@ -9,6 +9,7 @@ import Templos from './Templos';
 import Cajas from './Cajas';
 import Usuarios from './Usuarios';
 import DashboardHome from './DashboardHome';
+import Configuracion from './Configuracion';
 
 export default function Dashboard({ userRole, isOnline }) {
   const [currentPage, setCurrentPage] = useState('dashboard');
@@ -61,6 +62,8 @@ export default function Dashboard({ userRole, isOnline }) {
         return <Reportes stats={stats} />;
       case 'auditoria':
         return <Auditoria />;
+      case 'configuracion':
+        return <Configuracion />;
       case 'templos':
         return <Templos />;
       case 'cajas':
