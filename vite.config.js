@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+﻿import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
@@ -9,15 +9,6 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    minify: false,
-    rollupOptions: {
-      output: {
-        manualChunks: undefined
-      }
-    }
+    minify: false
   }
-<<<<<<< HEAD
 })
-=======
-});
->>>>>>> febd9e174de100083d50f3e7b4ecd03631f361b9
