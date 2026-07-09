@@ -26,7 +26,6 @@ export default function Configuracion() {
     setTiposIngresos(types || []);
   };
 
-  // Centro de Costos
   const handleAddCenter = async () => {
     if (!newCenter.trim()) return;
     
@@ -42,39 +41,35 @@ export default function Configuracion() {
   };
 
   const handleDeleteCenter = async (id) => {
-    if (confirm('¿Eliminar centro de costos?')) {
+    if (confirm('¿Eliminar?')) {
       await supabase.from('centro_costos').delete().eq('id', id);
       loadConfigData();
     }
   };
 
-  // Conceptos
   const handleAddConcept = async () => {
     if (!newConcept.trim()) return;
-    
     await supabase.from('conceptos').insert({ nombre: newConcept, tipo: 'ingreso' });
     setNewConcept('');
     loadConfigData();
   };
 
   const handleDeleteConcept = async (id) => {
-    if (confirm('¿Eliminar concepto?')) {
+    if (confirm('¿Eliminar?')) {
       await supabase.from('conceptos').delete().eq('id', id);
       loadConfigData();
     }
   };
 
-  // Tipos de Ingresos
   const handleAddType = async () => {
     if (!newType.trim()) return;
-    
     await supabase.from('tipos_ingresos').insert({ nombre: newType });
     setNewType('');
     loadConfigData();
   };
 
   const handleDeleteType = async (id) => {
-    if (confirm('¿Eliminar tipo de ingreso?')) {
+    if (confirm('¿Eliminar?')) {
       await supabase.from('tipos_ingresos').delete().eq('id', id);
       loadConfigData();
     }
@@ -84,13 +79,12 @@ export default function Configuracion() {
     <div className="space-y-8">
       <h1 className="text-4xl font-bold text-navy">Configuración del Sistema</h1>
 
-      {/* Centro de Costos */}
       <div className="card border-l-4 border-navy">
         <h2 className="text-2xl font-bold text-navy mb-4">Centro de Costos</h2>
         <div className="flex gap-2 mb-4">
           <input
             type="text"
-            placeholder="Nuevo centro de costos"
+            placeholder="Nuevo centro"
             value={newCenter}
             onChange={(e) => setNewCenter(e.target.value)}
             className="input-field flex-1"
@@ -99,11 +93,6 @@ export default function Configuracion() {
             <Plus size={20} />
             {editingId ? 'Actualizar' : 'Agregar'}
           </button>
-          {editingId && (
-            <button onClick={() => { setEditingId(null); setNewCenter(''); }} className="btn-secondary">
-              Cancelar
-            </button>
-          )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {centrosCostos.map((center) => (
@@ -122,9 +111,8 @@ export default function Configuracion() {
         </div>
       </div>
 
-      {/* Conceptos */}
       <div className="card border-l-4 border-green-600">
-        <h2 className="text-2xl font-bold text-navy mb-4">Conceptos de Movimientos</h2>
+        <h2 className="text-2xl font-bold text-navy mb-4">Conceptos</h2>
         <div className="flex gap-2 mb-4">
           <input
             type="text"
@@ -150,13 +138,12 @@ export default function Configuracion() {
         </div>
       </div>
 
-      {/* Tipos de Ingresos */}
       <div className="card border-l-4 border-oro">
         <h2 className="text-2xl font-bold text-navy mb-4">Tipos de Ingresos</h2>
         <div className="flex gap-2 mb-4">
           <input
             type="text"
-            placeholder="Nuevo tipo de ingreso"
+            placeholder="Nuevo tipo"
             value={newType}
             onChange={(e) => setNewType(e.target.value)}
             className="input-field flex-1"
