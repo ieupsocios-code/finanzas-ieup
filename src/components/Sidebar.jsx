@@ -1,4 +1,4 @@
-import { LogOut, Home, TrendingDown, DollarSign, Wallet, BarChart3, Users, CheckSquare, Settings, AlertCircle } from 'lucide-react';
+import { LogOut, Home, TrendingDown, DollarSign, Wallet, BarChart3, Users, AlertCircle, Settings } from 'lucide-react';
 
 export default function Sidebar({ activePage, onNavigate, onLogout }) {
   const menuItems = [
@@ -7,8 +7,6 @@ export default function Sidebar({ activePage, onNavigate, onLogout }) {
     { id: 'egresos', label: 'Egresos', icon: DollarSign },
     { id: 'finanzas', label: 'Finanzas', icon: Wallet },
     { id: 'reportes', label: 'Reportes', icon: BarChart3 },
-    { id: 'templos', label: 'Templos', icon: Home },
-    { id: 'cajas', label: 'Cajas', icon: CheckSquare },
     { id: 'usuarios', label: 'Usuarios', icon: Users },
     { id: 'auditoria', label: 'Auditoría', icon: AlertCircle },
     { id: 'configuracion', label: 'Configuración', icon: Settings }
@@ -18,7 +16,11 @@ export default function Sidebar({ activePage, onNavigate, onLogout }) {
     <div className="w-64 bg-navy text-cream h-screen flex flex-col fixed left-0 top-0 shadow-xl">
       <div className="p-6 border-b border-gold border-opacity-20">
         <div className="flex items-center gap-3 mb-2">
-          <img src="/logo-white.png" alt="IEUP" className="w-10 h-10" />
+          <img 
+            src="/logo-white.png" 
+            alt="IEUP" 
+            className="w-10 h-10"
+          />
           <div>
             <h1 className="text-lg font-bold text-gold">Finanzas</h1>
             <p className="text-xs text-cream opacity-75">IEUP</p>
