@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 bg-gold text-navy font-semibold rounded-lg hover:bg-oro transition-colors shadow-md;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 bg-navy text-white font-semibold rounded-lg hover:bg-navy-dark transition-colors shadow-md;
+  }
+
+  .btn-danger {
+    @apply px-4 py-2 bg-accent-red text-white font-semibold rounded-lg hover:bg-red-700 transition-colors;
+  }
+
+  .card {
+    @apply bg-white rounded-lg shadow-md p-6 border border-gray-100;
+  }
+
+  .input-field {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent;
+  }
+
+  .table-head {
+    @apply bg-navy text-white font-semibold;
+  }
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-in-out;
+}
