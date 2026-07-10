@@ -17,7 +17,7 @@ export default function Egresos() {
     centro_costos: '',
     moneda: 'ARS',
     tipo_transaccion: 'efectivo',
-    ubicacion: 'caja-general',
+    ubicacion: 'general',
     detalle: '',
     fecha: new Date().toISOString().split('T')[0]
   });
@@ -37,11 +37,25 @@ export default function Egresos() {
   ];
 
   const ubicaciones = [
-    { value: 'caja-general', label: '💼 Caja General' },
-    { value: 'caja-jovenes', label: '👥 Caja Jóvenes' },
-    { value: 'caja-dorcas', label: '👵 Caja Dorcas' },
+    // CAJAS
+    { value: 'adolescentes', label: '👦 Adolescentes' },
+    { value: 'ciclistas', label: '🚴 Ciclistas' },
+    { value: 'coro', label: '🎵 Coro' },
+    { value: 'coro-juvenil', label: '🎤 Coro Juvenil' },
+    { value: 'dorcas', label: '👵 Dorcas' },
+    { value: 'general', label: '💼 General' },
+    { value: 'jovenes', label: '👥 Jóvenes' },
+    { value: 'ninos', label: '👶 Niños' },
+    { value: 'porteras', label: '👩 Porteras' },
+    { value: 'porteros', label: '👨 Porteros' },
+    { value: 'emisora', label: '📻 Emisora' },
+    { value: 'cajas', label: '📦 Cajas' },
+    { value: 'reposteria', label: '🍰 Repostería' },
+    { value: 'secretaria', label: '📋 Secretaría' },
+    // BANCOS
     { value: 'banco-nacion', label: '🏦 Banco Nación' },
     { value: 'banco-macro', label: '🏦 Banco Macro' },
+    // OTROS
     { value: 'plazo-fijo', label: '📅 Plazo Fijo' },
     { value: 'mercado-pago', label: '📱 Mercado Pago' },
     { value: 'billetera-virtual', label: '📱 Billetera Virtual' },
@@ -107,7 +121,7 @@ export default function Egresos() {
     
     setFormData({ 
       monto: '', concepto: '', centro_costos: '', moneda: 'ARS', 
-      tipo_transaccion: 'efectivo', ubicacion: 'caja-general', 
+      tipo_transaccion: 'efectivo', ubicacion: 'general', 
       detalle: '', fecha: new Date().toISOString().split('T')[0] 
     });
     setShowForm(false);
@@ -121,7 +135,7 @@ export default function Egresos() {
       centro_costos: egreso.centro_costos || '',
       moneda: egreso.moneda || 'ARS',
       tipo_transaccion: egreso.tipo_transaccion || 'efectivo',
-      ubicacion: egreso.ubicacion || 'caja-general',
+      ubicacion: egreso.ubicacion || 'general',
       detalle: egreso.detalle || '',
       fecha: egreso.fecha.split('T')[0]
     });
@@ -189,7 +203,7 @@ export default function Egresos() {
               if (!showForm) setEditingId(null);
               setFormData({ 
                 monto: '', concepto: '', centro_costos: '', moneda: 'ARS', 
-                tipo_transaccion: 'efectivo', ubicacion: 'caja-general', 
+                tipo_transaccion: 'efectivo', ubicacion: 'general', 
                 detalle: '', fecha: new Date().toISOString().split('T')[0] 
               });
             }}
