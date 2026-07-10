@@ -98,7 +98,7 @@ export default function Ingresos() {
       await supabase.from('movimientos').update({
         monto: parseFloat(formData.monto),
         concepto: formData.concepto,
-        templo_id: formData.templo,
+        templo_id: formData.templo || null,
         moneda: formData.moneda,
         tipo_transaccion: formData.tipo_transaccion,
         ubicacion: formData.ubicacion,
@@ -111,7 +111,7 @@ export default function Ingresos() {
       await supabase.from('movimientos').insert({
         monto: parseFloat(formData.monto),
         concepto: formData.concepto,
-        templo_id: formData.templo,
+        templo_id: formData.templo || null,
         moneda: formData.moneda,
         tipo_transaccion: formData.tipo_transaccion,
         ubicacion: formData.ubicacion,
@@ -161,7 +161,7 @@ export default function Ingresos() {
       Tipo: tiposTransaccion.find(t => t.value === ing.tipo_transaccion)?.label || '—',
       Ubicación: ubicaciones.find(u => u.value === ing.ubicacion)?.label || '—',
       Detalle: ing.detalle || '—',
-      Templo: ing.templo_id || '—'
+      Templo: ing.templo_id ? templos.find(t => t.id === ing.templo_id)?.nombre || '—' : '—'
     }));
 
     const csv = Papa.unparse(data);
@@ -181,6 +181,10 @@ export default function Ingresos() {
       skipEmptyLines: true,
       complete: async (results) => {
         try {
+          // Cargar templos frescos desde Supabase (garantiza que estén disponibles)
+          const { data: templosData } = await supabase.from('templos').select('*');
+          const templosActuales = templosData || [];
+
           const registrosValidos = [];
           let errores = [];
 
@@ -200,14 +204,26 @@ export default function Ingresos() {
               fechaParsed = `${año}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
             }
 
+            // BUSCAR templo_id por nombre de templo
+            let templo_id = null;
+            if (row.Templo && row.Templo.trim()) {
+              const temploEncontrado = templosActuales.find(t => t.nombre?.toLowerCase().trim() === row.Templo.trim().toLowerCase());
+              if (temploEncontrado) {
+                templo_id = temploEncontrado.id;
+              } else {
+                // Si el templo no existe, avisa pero continúa sin templo
+                errores.push(`Fila ${i + 2}: Templo "${row.Templo}" no encontrado en la base de datos`);
+              }
+            }
+
             registrosValidos.push({
               monto: parseFloat(row.Monto),
               concepto: row.Concepto.trim(),
               moneda: row.Moneda?.trim() || 'ARS',
-              tipo_transaccion: 'efectivo', // Por defecto
-              ubicacion: 'general', // Por defecto
+              tipo_transaccion: 'efectivo',
+              ubicacion: 'general',
               detalle: row.Detalle?.trim() || null,
-              templo_id: row.Templo?.trim() || null,
+              templo_id: templo_id,
               tipo: 'ingreso',
               fecha: fechaParsed
             });
@@ -224,7 +240,7 @@ export default function Ingresos() {
           if (error) {
             setImportMessage(`❌ Error al guardar: ${error.message}`);
           } else {
-            setImportMessage(`✅ Importado: ${registrosValidos.length} ingresos guardados ${errores.length > 0 ? `(${errores.length} con errores)` : ''}`);
+            setImportMessage(`✅ Importado: ${registrosValidos.length} ingresos guardados ${errores.length > 0 ? `(⚠️ ${errores.length} avisos: consulta los templos)` : ''}`);
             loadData();
             setTimeout(() => setImportMessage(''), 5000);
           }
@@ -237,7 +253,6 @@ export default function Ingresos() {
       }
     });
 
-    // Limpiar input
     e.target.value = '';
   };
 
