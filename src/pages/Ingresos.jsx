@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { Download, Plus, Settings, Edit2, Trash2, X } from 'lucide-react';
+import { Download, Plus, Settings, Edit2, Trash2, X, Upload } from 'lucide-react';
 import Papa from 'papaparse';
 
 export default function Ingresos() {
@@ -11,6 +11,8 @@ export default function Ingresos() {
   const [showSettings, setShowSettings] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [newConcept, setNewConcept] = useState('');
+  const [importMessage, setImportMessage] = useState('');
+  const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
     monto: '',
     concepto: '',
@@ -170,6 +172,75 @@ export default function Ingresos() {
     link.click();
   };
 
+  const handleImportCSV = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        try {
+          const registrosValidos = [];
+          let errores = [];
+
+          for (let i = 0; i < results.data.length; i++) {
+            const row = results.data[i];
+            
+            // Validar campos requeridos
+            if (!row.Monto || !row.Concepto || !row.Fecha) {
+              errores.push(`Fila ${i + 2}: Faltan campos (Monto, Concepto o Fecha)`);
+              continue;
+            }
+
+            // Parsear fecha (DD/MM/YYYY → YYYY-MM-DD)
+            let fechaParsed = row.Fecha;
+            if (row.Fecha.includes('/')) {
+              const [dia, mes, año] = row.Fecha.split('/');
+              fechaParsed = `${año}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+            }
+
+            registrosValidos.push({
+              monto: parseFloat(row.Monto),
+              concepto: row.Concepto.trim(),
+              moneda: row.Moneda?.trim() || 'ARS',
+              tipo_transaccion: 'efectivo', // Por defecto
+              ubicacion: 'general', // Por defecto
+              detalle: row.Detalle?.trim() || null,
+              templo_id: row.Templo?.trim() || null,
+              tipo: 'ingreso',
+              fecha: fechaParsed
+            });
+          }
+
+          if (registrosValidos.length === 0) {
+            setImportMessage(`❌ Error: No hay registros válidos. ${errores.join(' | ')}`);
+            return;
+          }
+
+          // Insertar en Supabase
+          const { error } = await supabase.from('movimientos').insert(registrosValidos);
+
+          if (error) {
+            setImportMessage(`❌ Error al guardar: ${error.message}`);
+          } else {
+            setImportMessage(`✅ Importado: ${registrosValidos.length} ingresos guardados ${errores.length > 0 ? `(${errores.length} con errores)` : ''}`);
+            loadData();
+            setTimeout(() => setImportMessage(''), 5000);
+          }
+        } catch (err) {
+          setImportMessage(`❌ Error: ${err.message}`);
+        }
+      },
+      error: (error) => {
+        setImportMessage(`❌ Error al leer CSV: ${error.message}`);
+      }
+    });
+
+    // Limpiar input
+    e.target.value = '';
+  };
+
   const getMonedaSymbol = (moneda) => {
     const symbols = { 'ARS': '$', 'USD': 'U$S', 'CLP': '$' };
     return symbols[moneda] || '$';
@@ -190,6 +261,20 @@ export default function Ingresos() {
             <Download size={20} />
             Exportar CSV
           </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="btn-secondary flex items-center gap-2"
+          >
+            <Upload size={20} />
+            Importar CSV
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            onChange={handleImportCSV}
+            className="hidden"
+          />
           <button
             onClick={() => setShowSettings(!showSettings)}
             className="btn-secondary flex items-center gap-2"
@@ -214,6 +299,13 @@ export default function Ingresos() {
           </button>
         </div>
       </div>
+
+      {/* Mensaje de importación */}
+      {importMessage && (
+        <div className={`card ${importMessage.includes('✅') ? 'bg-green-50 border-l-4 border-green-500' : 'bg-red-50 border-l-4 border-red-500'}`}>
+          <p className={importMessage.includes('✅') ? 'text-green-800' : 'text-red-800'}>{importMessage}</p>
+        </div>
+      )}
 
       {/* Panel de configuración de conceptos */}
       {showSettings && (
