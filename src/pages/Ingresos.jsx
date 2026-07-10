@@ -41,10 +41,10 @@ export default function Ingresos() {
     { value: 'caja-jovenes', label: '👥 Caja Jóvenes' },
     { value: 'caja-dorcas', label: '👵 Caja Dorcas' },
     { value: 'banco-nacion', label: '🏦 Banco Nación' },
-    { value: 'banco-santander', label: '🏦 Banco Santander' },
-    { value: 'banco-icbc', label: '🏦 Banco ICBC' },
+    { value: 'banco-macro', label: '🏦 Banco Macro' },
     { value: 'mercado-pago', label: '📱 Mercado Pago' },
     { value: 'billetera-virtual', label: '📱 Billetera Virtual' },
+    { value: 'plazo-fijo', label: '📅 Plazo Fijo' },
     { value: 'otro', label: '❓ Otro' }
   ];
 
