@@ -13,6 +13,14 @@ const PERIODOS_FILTRO = [
   { value: 'personalizado', label: 'Personalizado' },
 ];
 
+
+// Parsear fecha como fecha LOCAL (evita el corrimiento de un día por zona horaria)
+function parseFechaLocal(fecha) {
+  if (!fecha) return new Date(0);
+  const [y, m, d] = String(fecha).split('T')[0].split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
 function rangoPeriodo(periodo, desde, hasta) {
   const hoy = new Date();
   const inicioDia = (d) => { d.setHours(0, 0, 0, 0); return d; };
@@ -209,7 +217,7 @@ export default function Egresos() {
   const filtrados = useMemo(() => {
     const [ini, fin] = rangoPeriodo(filtroPeriodo, filtroDesde, filtroHasta);
     return egresos.filter(m => {
-      const f = new Date(m.fecha);
+      const f = parseFechaLocal(m.fecha);
       if (f < ini || f > fin) return false;
       if (filtroTemplo && m.templo_id !== filtroTemplo) return false;
       if (filtroCaja && (m.ubicacion || 'general') !== filtroCaja) return false;
@@ -238,8 +246,8 @@ export default function Egresos() {
         vb = b.templo_id ? (templos.find(t => t.id === b.templo_id)?.nombre || '') : '';
       }
       if (sortField === 'fecha') {
-        va = new Date(a.fecha).getTime();
-        vb = new Date(b.fecha).getTime();
+        va = parseFechaLocal(a.fecha).getTime();
+        vb = parseFechaLocal(b.fecha).getTime();
       } else if (sortField === 'monto') {
         va = a.monto || 0;
         vb = b.monto || 0;
@@ -266,7 +274,7 @@ export default function Egresos() {
 
   const handleExportCSV = () => {
     const data = ordenados.map(ing => ({
-      Fecha: new Date(ing.fecha).toLocaleDateString('es-ES'),
+      Fecha: parseFechaLocal(ing.fecha).toLocaleDateString('es-ES'),
       Concepto: ing.concepto,
       Monto: ing.monto,
       Moneda: ing.moneda || 'ARS',
@@ -697,7 +705,7 @@ export default function Egresos() {
               {ordenados.length > 0 ? (
                 ordenados.slice(0, 100).map((ing, idx) => (
                   <tr key={idx} className="border-b hover:bg-gray-50">
-                    <td className="p-3">{new Date(ing.fecha).toLocaleDateString('es-ES')}</td>
+                    <td className="p-3">{parseFechaLocal(ing.fecha).toLocaleDateString('es-ES')}</td>
                     <td className="p-3 font-medium">{ing.concepto}</td>
                     <td className="p-3 font-bold text-red-600">{getMonedaSymbol(ing.moneda)} {ing.monto?.toLocaleString()}</td>
                     <td className="p-3">
