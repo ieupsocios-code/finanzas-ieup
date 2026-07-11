@@ -709,6 +709,7 @@ export default function Ingresos() {
                 <th className="text-left p-3 text-navy font-bold cursor-pointer select-none hover:bg-gold hover:bg-opacity-20 transition" onClick={() => handleSort('moneda')}>Moneda{flecha('moneda')}</th>
                 <th className="text-left p-3 text-navy font-bold cursor-pointer select-none hover:bg-gold hover:bg-opacity-20 transition" onClick={() => handleSort('tipo_transaccion')}>Tipo{flecha('tipo_transaccion')}</th>
                 <th className="text-left p-3 text-navy font-bold cursor-pointer select-none hover:bg-gold hover:bg-opacity-20 transition" onClick={() => handleSort('ubicacion')}>Ubicación{flecha('ubicacion')}</th>
+                <th className="text-left p-3 text-navy font-bold cursor-pointer select-none hover:bg-gold hover:bg-opacity-20 transition" onClick={() => handleSort('templo')}>Templo{flecha('templo')}</th>
                 <th className="text-left p-3 text-navy font-bold cursor-pointer select-none hover:bg-gold hover:bg-opacity-20 transition" onClick={() => handleSort('detalle')}>Detalle{flecha('detalle')}</th>
                 <th className="text-left p-3 text-navy font-bold">Acciones</th>
               </tr>
@@ -733,6 +734,7 @@ export default function Ingresos() {
                       </span>
                     </td>
                     <td className="p-3 text-xs">{ubicaciones.find(u => u.value === ing.ubicacion)?.label || '—'}</td>
+                    <td className="p-3 text-xs">{ing.templo_id ? templos.find(t => t.id === ing.templo_id)?.nombre || '—' : '—'}</td>
                     <td className="p-3 text-gray-600">{ing.detalle || '—'}</td>
                     <td className="p-3 flex gap-2">
                       <button
@@ -754,7 +756,7 @@ export default function Ingresos() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="8" className="p-6 text-center text-gray-500">
+                  <td colSpan="9" className="p-6 text-center text-gray-500">
                     No hay ingresos con los filtros seleccionados
                   </td>
                 </tr>
