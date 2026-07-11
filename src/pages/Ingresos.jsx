@@ -62,6 +62,10 @@ export default function Ingresos() {
   const [filtroTemplo, setFiltroTemplo] = useState('');
   const [filtroCaja, setFiltroCaja] = useState('');
 
+  // Paginación de la tabla
+  const [pagina, setPagina] = useState(1);
+  const POR_PAGINA = 50;
+
   // Ordenamiento de la tabla
   const [sortField, setSortField] = useState('fecha');
   const [sortDir, setSortDir] = useState('desc');
@@ -128,6 +132,11 @@ export default function Ingresos() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Volver a la página 1 al cambiar filtros u ordenamiento
+  useEffect(() => {
+    setPagina(1);
+  }, [filtroPeriodo, filtroDesde, filtroHasta, filtroTemplo, filtroCaja, sortField, sortDir]);
 
   const loadData = async () => {
     const { data: ing } = await supabase.from('movimientos').select('*').eq('tipo', 'ingreso');
@@ -261,6 +270,10 @@ export default function Ingresos() {
     });
     return arr;
   }, [filtrados, sortField, sortDir]);
+
+  // Página actual de resultados
+  const totalPaginas = Math.max(1, Math.ceil(ordenados.length / POR_PAGINA));
+  const paginados = ordenados.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
 
   const flecha = (field) => {
     if (sortField !== field) return <span className="opacity-30 ml-1">↕</span>;
@@ -702,7 +715,7 @@ export default function Ingresos() {
             </thead>
             <tbody>
               {ordenados.length > 0 ? (
-                ordenados.slice(0, 100).map((ing, idx) => (
+                paginados.map((ing, idx) => (
                   <tr key={idx} className="border-b hover:bg-gray-50">
                     <td className="p-3">{parseFechaLocal(ing.fecha).toLocaleDateString('es-ES')}</td>
                     <td className="p-3 font-medium">{ing.concepto}</td>
@@ -749,6 +762,47 @@ export default function Ingresos() {
             </tbody>
           </table>
         </div>
+        {/* PAGINACIÓN */}
+        {ordenados.length > POR_PAGINA && (
+          <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4 border-t">
+            <p className="text-sm text-gray-600">
+              Mostrando {((pagina - 1) * POR_PAGINA + 1).toLocaleString('es-AR')}–{Math.min(pagina * POR_PAGINA, ordenados.length).toLocaleString('es-AR')} de {ordenados.length.toLocaleString('es-AR')} registros
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPagina(1)}
+                disabled={pagina === 1}
+                className="px-3 py-2 rounded border text-navy font-bold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gold hover:bg-opacity-20"
+              >
+                «
+              </button>
+              <button
+                onClick={() => setPagina(p => Math.max(1, p - 1))}
+                disabled={pagina === 1}
+                className="px-3 py-2 rounded border text-navy font-bold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gold hover:bg-opacity-20"
+              >
+                ‹ Anterior
+              </button>
+              <span className="px-3 py-2 text-sm font-bold text-navy">
+                Página {pagina} de {totalPaginas}
+              </span>
+              <button
+                onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}
+                disabled={pagina === totalPaginas}
+                className="px-3 py-2 rounded border text-navy font-bold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gold hover:bg-opacity-20"
+              >
+                Siguiente ›
+              </button>
+              <button
+                onClick={() => setPagina(totalPaginas)}
+                disabled={pagina === totalPaginas}
+                className="px-3 py-2 rounded border text-navy font-bold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gold hover:bg-opacity-20"
+              >
+                »
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
