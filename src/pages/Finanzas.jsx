@@ -47,6 +47,14 @@ const PERIODOS = [
   { value: 'personalizado', label: 'Personalizado' },
 ];
 
+
+// Parsear fecha como fecha LOCAL (evita el corrimiento de un día por zona horaria)
+function parseFechaLocal(fecha) {
+  if (!fecha) return new Date(0);
+  const [y, m, d] = String(fecha).split('T')[0].split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
 function rangoPeriodo(periodo, desde, hasta) {
   const hoy = new Date();
   const inicioDia = (d) => { d.setHours(0, 0, 0, 0); return d; };
@@ -107,7 +115,7 @@ export default function Finanzas() {
     const [ini, fin] = rangoPeriodo(periodo, desde, hasta);
     return movimientos.filter(m => {
       if ((m.moneda || 'ARS') !== moneda) return false;
-      const f = new Date(m.fecha);
+      const f = parseFechaLocal(m.fecha);
       if (f < ini || f > fin) return false;
       if (temploFiltro && m.templo_id !== temploFiltro) return false;
       return true;
