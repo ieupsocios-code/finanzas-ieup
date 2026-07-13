@@ -322,6 +322,15 @@ export default function Ingresos() {
     return <span className="ml-1">{sortDir === 'asc' ? '↑' : '↓'}</span>;
   };
 
+  // Opciones de concepto: tabla conceptos + conceptos ya usados en los registros
+  const conceptosOpciones = useMemo(() => {
+    const set = new Set();
+    conceptos.filter(c => c.tipo === 'ingreso').forEach(c => c.nombre && set.add(c.nombre.trim()));
+    ingresos.forEach(m => m.concepto && set.add(m.concepto.trim()));
+    if (formData.concepto) set.add(formData.concepto.trim());
+    return [...set].sort((a, b) => a.localeCompare(b, 'es'));
+  }, [conceptos, ingresos, formData.concepto]);
+
   const limpiarFiltros = () => {
     setFiltroPeriodo('todo'); setFiltroDesde(''); setFiltroHasta('');
     setFiltroTemplo(''); setFiltroCaja('');
@@ -664,11 +673,8 @@ export default function Ingresos() {
               required
             >
               <option value="">Selecciona concepto</option>
-              {formData.concepto && !conceptos.some(c => c.tipo === 'ingreso' && c.nombre === formData.concepto) && (
-                <option value={formData.concepto}>{formData.concepto}</option>
-              )}
-              {conceptos.filter(c => c.tipo === 'ingreso').map((c) => (
-                <option key={c.id} value={c.nombre}>{c.nombre}</option>
+              {conceptosOpciones.map((nombre) => (
+                <option key={nombre} value={nombre}>{nombre}</option>
               ))}
             </select>
             <select
