@@ -111,6 +111,7 @@ export default function DashboardHome() {
   const [hasta, setHasta] = useState('');
   const [temploFiltro, setTemploFiltro] = useState('');
   const [cajaFiltro, setCajaFiltro] = useState('');
+  const [metricaTC, setMetricaTC] = useState('ingresos'); // gráfico Templo × Caja
 
   useEffect(() => { loadData(); }, []);
 
@@ -224,6 +225,27 @@ export default function DashboardHome() {
     });
     return Object.values(grouped).sort((a, b) => b.saldo - a.saldo);
   }, [movsFiltrados]);
+
+  // Desglose de cada templo por sus cajas (para gráfico apilado)
+  const temploCaja = useMemo(() => {
+    const porTemplo = {};
+    const cajasSet = new Set();
+    movsFiltrados.forEach(m => {
+      if (m.tipo !== (metricaTC === 'ingresos' ? 'ingreso' : 'egreso')) return;
+      const nombre = m.templo_id
+        ? (templos.find(t => t.id === m.templo_id)?.nombre || 'Desconocido')
+        : 'Sin templo';
+      const u = m.ubicacion || 'general';
+      const cajaLabel = UBICACIONES.find(x => x.value === u)?.label || u;
+      cajasSet.add(cajaLabel);
+      if (!porTemplo[nombre]) porTemplo[nombre] = { templo: nombre, __total: 0 };
+      porTemplo[nombre][cajaLabel] = (porTemplo[nombre][cajaLabel] || 0) + (m.monto || 0);
+      porTemplo[nombre].__total += (m.monto || 0);
+    });
+    const data = Object.values(porTemplo).sort((a, b) => b.__total - a.__total);
+    const cajas = [...cajasSet].sort();
+    return { data, cajas };
+  }, [movsFiltrados, templos, metricaTC]);
 
   const fmt = (n) =>
     `${SYMBOLS[moneda] || '$'} ${(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -386,6 +408,48 @@ export default function DashboardHome() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
+          </div>
+
+          {/* TEMPLO DESGLOSADO POR CAJAS (APILADO) */}
+          <div className="card">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <h2 className="text-xl font-bold text-navy">Templos desglosados por Caja</h2>
+              <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+                <button
+                  onClick={() => setMetricaTC('ingresos')}
+                  className={`px-4 py-2 rounded-md text-sm font-bold transition ${metricaTC === 'ingresos' ? 'bg-green-600 text-white shadow' : 'text-navy hover:bg-gray-200'}`}
+                >
+                  Ingresos
+                </button>
+                <button
+                  onClick={() => setMetricaTC('egresos')}
+                  className={`px-4 py-2 rounded-md text-sm font-bold transition ${metricaTC === 'egresos' ? 'bg-red-600 text-white shadow' : 'text-navy hover:bg-gray-200'}`}
+                >
+                  Egresos
+                </button>
+              </div>
+            </div>
+            {temploCaja.data.length === 0 ? (
+              <p className="text-gray-500 text-center py-12">Sin datos en el período</p>
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height={Math.max(280, temploCaja.data.length * 55)}>
+                  <BarChart data={temploCaja.data} layout="vertical" margin={{ left: 10, right: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" tickFormatter={fmtCompacto} tick={{ fontSize: 12 }} />
+                    <YAxis type="category" dataKey="templo" width={90} tick={{ fontSize: 12 }} />
+                    <Tooltip formatter={(v) => fmt(v)} />
+                    <Legend />
+                    {temploCaja.cajas.map((caja, i) => (
+                      <Bar key={caja} dataKey={caja} stackId="tc" fill={COLORS[i % COLORS.length]} />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+                <p className="text-xs text-gray-500 mt-2">
+                  Cada barra es un templo; los segmentos de color muestran cuánto aporta cada caja. Pasa el mouse sobre un segmento para ver el detalle.
+                </p>
+              </>
+            )}
           </div>
         </>
       )}
