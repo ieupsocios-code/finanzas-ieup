@@ -79,6 +79,10 @@ function parseFechaLocal(fecha) {
   return new Date(y, (m || 1) - 1, d || 1);
 }
 
+
+// Detectar movimientos de Saldo Inicial (apertura)
+const esSaldoInicial = (m) => (m.concepto || '').trim().toLowerCase() === 'saldo inicial';
+
 function rangoPeriodo(periodo, desde, hasta) {
   const hoy = new Date();
   const inicioDia = (d) => { d.setHours(0, 0, 0, 0); return d; };
@@ -112,6 +116,7 @@ export default function Finanzas() {
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
   const [temploFiltro, setTemploFiltro] = useState('');
+  const [incluirSI, setIncluirSI] = useState(true);
 
   useEffect(() => { loadData(); }, []);
 
@@ -135,7 +140,7 @@ export default function Finanzas() {
     return ['ARS', 'USD', 'CLP'].filter(m => set.has(m));
   }, [movimientos]);
 
-  const movsFiltrados = useMemo(() => {
+  const movsFiltradosBase = useMemo(() => {
     const [ini, fin] = rangoPeriodo(periodo, desde, hasta);
     return movimientos.filter(m => {
       if ((m.moneda || 'ARS') !== moneda) return false;
@@ -145,6 +150,38 @@ export default function Finanzas() {
       return true;
     });
   }, [movimientos, moneda, periodo, desde, hasta, temploFiltro]);
+
+  const movsFiltrados = useMemo(
+    () => incluirSI ? movsFiltradosBase : movsFiltradosBase.filter(m => !esSaldoInicial(m)),
+    [movsFiltradosBase, incluirSI]
+  );
+
+  const totalSaldoInicial = useMemo(
+    () => movsFiltradosBase.filter(esSaldoInicial).reduce((s, m) => s + (m.monto || 0), 0),
+    [movsFiltradosBase]
+  );
+
+  // Resumen consolidado en TODAS las monedas (respeta período/templo/saldo inicial, ignora el selector de moneda)
+  const resumenMultimoneda = useMemo(() => {
+    const [ini, fin] = rangoPeriodo(periodo, desde, hasta);
+    const res = {};
+    movimientos.forEach(m => {
+      const f = parseFechaLocal(m.fecha);
+      if (f < ini || f > fin) return;
+      if (temploFiltro && m.templo_id !== temploFiltro) return;
+      if (!incluirSI && esSaldoInicial(m)) return;
+      const mon = m.moneda || 'ARS';
+      if (!res[mon]) res[mon] = { cajas: 0, bancos: 0, otros: 0, saldoInicial: 0, total: 0 };
+      const u = m.ubicacion || 'general';
+      const grupo = GRUPOS.bancos.items.includes(u) ? 'bancos'
+        : GRUPOS.otros.items.includes(u) ? 'otros' : 'cajas';
+      const delta = m.tipo === 'ingreso' ? (m.monto || 0) : -(m.monto || 0);
+      res[mon][grupo] += delta;
+      res[mon].total += delta;
+      if (esSaldoInicial(m)) res[mon].saldoInicial += (m.monto || 0);
+    });
+    return Object.entries(res).map(([mon, v]) => ({ moneda: mon, ...v }));
+  }, [movimientos, periodo, desde, hasta, temploFiltro, incluirSI]);
 
   // Saldos por ubicación
   const saldos = useMemo(() => {
@@ -262,6 +299,23 @@ export default function Finanzas() {
             </div>
           </div>
         )}
+        <div className="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t border-blue-200">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={incluirSI}
+              onChange={(e) => setIncluirSI(e.target.checked)}
+              className="w-4 h-4 accent-[#001f3f]"
+            />
+            <span className="text-sm font-bold text-navy">Incluir Saldo Inicial</span>
+          </label>
+          {totalSaldoInicial > 0 && (
+            <span className="text-sm text-gray-700">
+              Saldo Inicial en el período: <strong>{fmt(totalSaldoInicial)}</strong>
+              {!incluirSI && ' (excluido de los cálculos)'}
+            </span>
+          )}
+        </div>
         <p className="text-xs text-gray-600 mt-3">
           💡 Con el período "Todo" ves el <strong>saldo real acumulado</strong> de cada caja. Con otros períodos ves solo el movimiento de ese lapso.
         </p>
@@ -277,6 +331,50 @@ export default function Finanzas() {
           <PiggyBank size={48} className="text-oro opacity-50" />
         </div>
       </div>
+
+      {/* RESUMEN CONSOLIDADO MULTIMONEDA */}
+      {resumenMultimoneda.length > 1 && (
+        <div className="card">
+          <h2 className="text-xl font-bold text-navy mb-4">Resumen por Moneda</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b-2 border-gold">
+                  <th className="text-left p-3 text-navy font-bold">Moneda</th>
+                  <th className="text-right p-3 text-navy font-bold">Cajas</th>
+                  <th className="text-right p-3 text-navy font-bold">Bancos</th>
+                  <th className="text-right p-3 text-navy font-bold">Billeteras / Plazo Fijo</th>
+                  <th className="text-right p-3 text-navy font-bold">Saldo Inicial incluido</th>
+                  <th className="text-right p-3 text-navy font-bold">Saldo Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resumenMultimoneda.map((r) => {
+                  const sym = SYMBOLS[r.moneda] || '$';
+                  const f = (n) => `${sym} ${(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                  return (
+                    <tr key={r.moneda} className="border-b hover:bg-gray-50">
+                      <td className="p-3 font-bold">
+                        {r.moneda === 'ARS' && '🇦🇷 ARS'}
+                        {r.moneda === 'USD' && '🇺🇸 USD'}
+                        {r.moneda === 'CLP' && '🇨🇱 CLP'}
+                      </td>
+                      <td className={`p-3 text-right ${r.cajas >= 0 ? '' : 'text-red-600'}`}>{f(r.cajas)}</td>
+                      <td className={`p-3 text-right ${r.bancos >= 0 ? '' : 'text-red-600'}`}>{f(r.bancos)}</td>
+                      <td className={`p-3 text-right ${r.otros >= 0 ? '' : 'text-red-600'}`}>{f(r.otros)}</td>
+                      <td className="p-3 text-right text-gray-600">{incluirSI ? f(r.saldoInicial) : '— (excluido)'}</td>
+                      <td className={`p-3 text-right font-bold ${r.total >= 0 ? 'text-green-700' : 'text-red-600'}`}>{f(r.total)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            Este cuadro consolida todas las monedas del período y templo seleccionados, sin importar la moneda elegida arriba.
+          </p>
+        </div>
+      )}
 
       {loading ? (
         <div className="card text-center text-gray-500 py-12">Cargando datos...</div>
