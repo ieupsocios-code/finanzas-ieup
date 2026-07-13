@@ -27,7 +27,8 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
-import { TrendingUp, TrendingDown, Wallet, ListChecks, Filter } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, ListChecks, Filter, Download } from 'lucide-react';
+import Papa from 'papaparse';
 
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 const COLORS = ['#FFD700', '#C41E3A', '#001f3f', '#D4AF37', '#22c55e', '#3b82f6', '#a855f7', '#f97316', '#14b8a6', '#ec4899'];
@@ -247,6 +248,69 @@ export default function DashboardHome() {
     return { data, cajas };
   }, [movsFiltrados, templos, metricaTC]);
 
+  // Resumen de saldos: cada templo desglosado por sus cajas
+  const resumenTemploCaja = useMemo(() => {
+    const grupos = {};
+    movsFiltrados.forEach(m => {
+      const nombre = m.templo_id
+        ? (templos.find(t => t.id === m.templo_id)?.nombre || 'Desconocido')
+        : 'Sin templo';
+      const u = m.ubicacion || 'general';
+      const cajaLabel = UBICACIONES.find(x => x.value === u)?.label || u;
+      if (!grupos[nombre]) grupos[nombre] = { templo: nombre, cajas: {}, ingresos: 0, egresos: 0 };
+      if (!grupos[nombre].cajas[cajaLabel]) grupos[nombre].cajas[cajaLabel] = { ingresos: 0, egresos: 0 };
+      const monto = m.monto || 0;
+      if (m.tipo === 'ingreso') {
+        grupos[nombre].ingresos += monto;
+        grupos[nombre].cajas[cajaLabel].ingresos += monto;
+      } else {
+        grupos[nombre].egresos += monto;
+        grupos[nombre].cajas[cajaLabel].egresos += monto;
+      }
+    });
+    return Object.values(grupos)
+      .map(g => ({
+        ...g,
+        saldo: g.ingresos - g.egresos,
+        cajasArr: Object.entries(g.cajas)
+          .map(([caja, v]) => ({ caja, ...v, saldo: v.ingresos - v.egresos }))
+          .sort((a, b) => b.saldo - a.saldo),
+      }))
+      .sort((a, b) => b.saldo - a.saldo);
+  }, [movsFiltrados, templos]);
+
+  const totalGeneral = useMemo(() => {
+    let ingresos = 0, egresos = 0;
+    resumenTemploCaja.forEach(g => { ingresos += g.ingresos; egresos += g.egresos; });
+    return { ingresos, egresos, saldo: ingresos - egresos };
+  }, [resumenTemploCaja]);
+
+  const exportarResumenTemploCaja = () => {
+    const filas = [];
+    resumenTemploCaja.forEach(g => {
+      g.cajasArr.forEach(cj => {
+        filas.push({
+          Templo: g.templo, Caja: cj.caja,
+          Ingresos: cj.ingresos, Egresos: cj.egresos, Saldo: cj.saldo,
+        });
+      });
+      filas.push({
+        Templo: `TOTAL ${g.templo.toUpperCase()}`, Caja: '',
+        Ingresos: g.ingresos, Egresos: g.egresos, Saldo: g.saldo,
+      });
+    });
+    filas.push({
+      Templo: 'TOTAL GENERAL', Caja: '',
+      Ingresos: totalGeneral.ingresos, Egresos: totalGeneral.egresos, Saldo: totalGeneral.saldo,
+    });
+    const csv = Papa.unparse(filas);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `saldos-templo-caja-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  };
+
   const fmt = (n) =>
     `${SYMBOLS[moneda] || '$'} ${(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const fmtCompacto = (n) => {
@@ -451,6 +515,38 @@ export default function DashboardHome() {
               </>
             )}
           </div>
+          {/* RESUMEN DE SALDOS: TEMPLO × CAJA */}
+          <div className="card">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <h2 className="text-xl font-bold text-navy">Resumen de Saldos por Templo y Caja</h2>
+              <button onClick={exportarResumenTemploCaja} className="btn-primary flex items-center gap-2">
+                <Download size={18} /> Exportar CSV
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b-2 border-gold">
+                    <th className="text-left p-3 text-navy font-bold">Templo / Caja</th>
+                    <th className="text-right p-3 text-navy font-bold">Ingresos</th>
+                    <th className="text-right p-3 text-navy font-bold">Egresos</th>
+                    <th className="text-right p-3 text-navy font-bold">Saldo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {resumenTemploCaja.map((g) => (
+                    <FragmentoTemplo key={g.templo} grupo={g} fmt={fmt} />
+                  ))}
+                  <tr className="bg-navy text-white font-bold">
+                    <td className="p-3">TOTAL GENERAL</td>
+                    <td className="p-3 text-right">{fmt(totalGeneral.ingresos)}</td>
+                    <td className="p-3 text-right">{fmt(totalGeneral.egresos)}</td>
+                    <td className="p-3 text-right">{fmt(totalGeneral.saldo)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </>
       )}
     </div>
@@ -495,5 +591,27 @@ function StatCard({ icon: Icon, label, amount, color, textColor }) {
         <Icon size={32} className="opacity-50" />
       </div>
     </div>
+  );
+}
+
+
+function FragmentoTemplo({ grupo, fmt }) {
+  return (
+    <>
+      <tr className="bg-gold bg-opacity-20 font-bold">
+        <td className="p-3 text-navy">{grupo.templo}</td>
+        <td className="p-3 text-right text-green-700">{fmt(grupo.ingresos)}</td>
+        <td className="p-3 text-right text-red-600">{fmt(grupo.egresos)}</td>
+        <td className={`p-3 text-right ${grupo.saldo >= 0 ? 'text-green-700' : 'text-red-600'}`}>{fmt(grupo.saldo)}</td>
+      </tr>
+      {grupo.cajasArr.map((cj) => (
+        <tr key={cj.caja} className="border-b hover:bg-gray-50">
+          <td className="p-3 pl-8 text-gray-700">↳ {cj.caja}</td>
+          <td className="p-3 text-right text-green-700">{fmt(cj.ingresos)}</td>
+          <td className="p-3 text-right text-red-600">{fmt(cj.egresos)}</td>
+          <td className={`p-3 text-right font-bold ${cj.saldo >= 0 ? 'text-green-700' : 'text-red-600'}`}>{fmt(cj.saldo)}</td>
+        </tr>
+      ))}
+    </>
   );
 }
