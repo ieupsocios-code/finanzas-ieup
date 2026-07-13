@@ -77,6 +77,10 @@ function parseFechaLocal(fecha) {
   return new Date(y, (m || 1) - 1, d || 1);
 }
 
+
+// Detectar movimientos de Saldo Inicial (apertura)
+const esSaldoInicial = (m) => (m.concepto || '').trim().toLowerCase() === 'saldo inicial';
+
 function rangoPeriodo(periodo, desde, hasta) {
   const hoy = new Date();
   const inicioDia = (d) => { d.setHours(0, 0, 0, 0); return d; };
@@ -116,6 +120,7 @@ export default function DashboardHome() {
   const [temploFiltro, setTemploFiltro] = useState('');
   const [cajaFiltro, setCajaFiltro] = useState('');
   const [metricaTC, setMetricaTC] = useState('ingresos'); // gráfico Templo × Caja
+  const [incluirSI, setIncluirSI] = useState(true); // incluir Saldo Inicial
 
   useEffect(() => { loadData(); }, []);
 
@@ -140,7 +145,7 @@ export default function DashboardHome() {
   }, [movimientos]);
 
   // Movimientos con TODOS los filtros aplicados
-  const movsFiltrados = useMemo(() => {
+  const movsFiltradosBase = useMemo(() => {
     const [ini, fin] = rangoPeriodo(periodo, desde, hasta);
     return movimientos.filter(m => {
       if ((m.moneda || 'ARS') !== moneda) return false;
@@ -151,6 +156,18 @@ export default function DashboardHome() {
       return true;
     });
   }, [movimientos, moneda, periodo, desde, hasta, temploFiltro, cajaFiltro]);
+
+  // Aplicar (o no) el Saldo Inicial según el interruptor
+  const movsFiltrados = useMemo(
+    () => incluirSI ? movsFiltradosBase : movsFiltradosBase.filter(m => !esSaldoInicial(m)),
+    [movsFiltradosBase, incluirSI]
+  );
+
+  // Monto de Saldo Inicial presente en el período (para informar al usuario)
+  const totalSaldoInicial = useMemo(
+    () => movsFiltradosBase.filter(esSaldoInicial).reduce((s, m) => s + (m.monto || 0), 0),
+    [movsFiltradosBase]
+  );
 
   // Totales del período filtrado
   const stats = useMemo(() => {
@@ -402,6 +419,23 @@ export default function DashboardHome() {
             </div>
           </div>
         )}
+        <div className="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t border-blue-200">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={incluirSI}
+              onChange={(e) => setIncluirSI(e.target.checked)}
+              className="w-4 h-4 accent-[#001f3f]"
+            />
+            <span className="text-sm font-bold text-navy">Incluir Saldo Inicial</span>
+          </label>
+          {totalSaldoInicial > 0 && (
+            <span className="text-sm text-gray-700">
+              Saldo Inicial en el período: <strong>{fmt(totalSaldoInicial)}</strong>
+              {!incluirSI && ' (excluido de los cálculos)'}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* TARJETAS */}
