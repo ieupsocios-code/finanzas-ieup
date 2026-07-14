@@ -11,6 +11,15 @@ const GRUPOS = [
   { value: 'billeteras', label: 'Billeteras y Otros', descripcion: 'MP, plazo fijo, billeteras virtuales' },
 ];
 
+const BANCOS_SUGERIDOS = ['Nación', 'Macro', 'Provincia', 'Galicia', 'Santander', 'BBVA', 'Credicoop', 'ICBC', 'HSBC', 'Patagonia'];
+const TIPOS_CUENTA = [
+  { value: 'CC', label: 'CC - Cuenta Corriente' },
+  { value: 'CA', label: 'CA - Caja de Ahorro' },
+  { value: 'PF', label: 'PF - Plazo Fijo' },
+  { value: 'CD', label: 'CD - Cuenta Dólares' },
+  { value: 'OTRO', label: 'OTRO' },
+];
+
 const EMOJIS_SUGERIDOS = ['💼', '📦', '🏦', '📱', '📅', '🏪', '🍽️', '📚', '🎵', '🎤', '👦', '👥', '👶', '👩', '👨', '👵', '🚴', '📻', '🍰', '📋', '❓'];
 
 export default function AdminCajas() {
@@ -24,6 +33,8 @@ export default function AdminCajas() {
   const [editandoId, setEditandoId] = useState(null);
   const [form, setForm] = useState({
     valor: '', nombre: '', emoji: '📦', grupo: 'cajas', templo_id: '', orden: 500,
+    // Campos específicos para bancos
+    banco: '', tipoCuenta: 'CC', cajaOrigen: '',
   });
 
   useEffect(() => { cargar(); }, []);
@@ -53,7 +64,7 @@ export default function AdminCajas() {
 
   const abrirNuevo = () => {
     setEditandoId(null);
-    setForm({ valor: '', nombre: '', emoji: '📦', grupo: 'cajas', templo_id: '', orden: 500 });
+    setForm({ valor: '', nombre: '', emoji: '📦', grupo: 'cajas', templo_id: '', orden: 500, banco: '', tipoCuenta: 'CC', cajaOrigen: '' });
     setFormAbierto(true);
   };
 
@@ -66,6 +77,8 @@ export default function AdminCajas() {
       grupo: caja.grupo,
       templo_id: caja.templo_id || '',
       orden: caja.orden || 500,
+      // Al editar, los campos bancarios no se muestran (se editan en el nombre directamente)
+      banco: '', tipoCuenta: 'CC', cajaOrigen: '',
     });
     setFormAbierto(true);
     setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
@@ -85,19 +98,26 @@ export default function AdminCajas() {
     };
 
     if (editandoId) {
-      // Al editar NO tocamos 'valor' (romperia la vinculación con movimientos existentes)
       const { error } = await supabase.from('cajas').update(datos).eq('id', editandoId);
       if (error) return mostrarMensaje(`❌ Error: ${error.message}`);
       mostrarMensaje('✅ Caja actualizada');
     } else {
-      // Al crear generamos el valor automáticamente
-      let valor = generarValor(form.nombre);
-      if (!valor) return mostrarMensaje('❌ El nombre no es válido');
-      // Verificar duplicado
-      const yaExiste = cajas.some(c => c.valor === valor);
-      if (yaExiste) {
-        valor = valor + '-' + Date.now().toString().slice(-4);
+      // Modo BANCO: armar nombre e identificador desde los 3 campos
+      if (form.grupo === 'bancos') {
+        if (!form.banco.trim()) return mostrarMensaje('❌ Falta el nombre del banco');
+        if (!form.templo_id) return mostrarMensaje('❌ Falta seleccionar el templo');
+        if (!form.cajaOrigen.trim()) return mostrarMensaje('❌ Falta la caja/área que administra la cuenta');
+        const templo = templos.find(t => t.id === form.templo_id);
+        if (!templo) return mostrarMensaje('❌ Templo inválido');
+        const cajaLabel = cajas.find(x => x.valor === form.cajaOrigen)?.nombre || form.cajaOrigen;
+        datos.nombre = `Banco ${form.banco.trim()} ${templo.nombre} - ${cajaLabel} - ${form.tipoCuenta}`;
+        datos.emoji = form.emoji || '🏦';
       }
+      // Generar identificador único
+      let valor = generarValor(datos.nombre);
+      if (!valor) return mostrarMensaje('❌ El nombre no es válido');
+      const yaExiste = cajas.some(c => c.valor === valor);
+      if (yaExiste) valor = valor + '-' + Date.now().toString().slice(-4);
       const { error } = await supabase.from('cajas').insert({ ...datos, valor, activo: true });
       if (error) return mostrarMensaje(`❌ Error: ${error.message}`);
       mostrarMensaje('✅ Caja creada correctamente');
@@ -170,14 +190,17 @@ export default function AdminCajas() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-navy mb-1">Nombre *</label>
+              <label className="block text-xs font-bold text-navy mb-1">
+                {form.grupo === 'bancos' && !editandoId ? 'Nombre (se arma automáticamente abajo)' : 'Nombre *'}
+              </label>
               <input
                 type="text"
                 value={form.nombre}
                 onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-                placeholder="Ej: Billetera Virtual Ferri"
+                placeholder={form.grupo === 'bancos' && !editandoId ? 'Se completa desde los datos bancarios' : 'Ej: Billetera Virtual Ferri'}
                 className="input-field w-full"
-                required
+                disabled={form.grupo === 'bancos' && !editandoId}
+                required={!(form.grupo === 'bancos' && !editandoId)}
               />
               {editandoId && (
                 <p className="text-xs text-gray-500 mt-1">Identificador interno: <code>{form.valor}</code> (no editable — mantiene el vínculo con los movimientos existentes)</p>
@@ -246,6 +269,64 @@ export default function AdminCajas() {
             </div>
           </div>
 
+          {/* CAMPOS ESPECÍFICOS DE BANCOS (solo al crear) */}
+          {form.grupo === 'bancos' && !editandoId && (
+            <div className="bg-white bg-opacity-60 border border-blue-300 rounded p-3 space-y-3">
+              <p className="text-sm font-bold text-navy">💡 Datos de la cuenta bancaria</p>
+              <p className="text-xs text-gray-600">
+                Con estos 3 datos el sistema arma automáticamente el nombre completo. Ejemplo: si elegís <em>Nación</em> + Central + <em>Repostería</em> + CA → se creará <strong>Banco Nación Central - Repostería - CA</strong>.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-navy mb-1">Banco *</label>
+                  <input
+                    type="text"
+                    list="bancos-sugeridos"
+                    value={form.banco}
+                    onChange={(e) => setForm({ ...form, banco: e.target.value })}
+                    placeholder="Nación, Macro..."
+                    className="input-field w-full"
+                  />
+                  <datalist id="bancos-sugeridos">
+                    {BANCOS_SUGERIDOS.map(b => <option key={b} value={b} />)}
+                  </datalist>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-navy mb-1">Caja/Área *</label>
+                  <select
+                    value={form.cajaOrigen}
+                    onChange={(e) => setForm({ ...form, cajaOrigen: e.target.value })}
+                    className="input-field w-full"
+                  >
+                    <option value="">Seleccionar...</option>
+                    {cajas.filter(c => c.grupo === 'cajas' && c.activo).map(c => (
+                      <option key={c.id} value={c.valor}>{c.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-navy mb-1">Tipo de cuenta *</label>
+                  <select
+                    value={form.tipoCuenta}
+                    onChange={(e) => setForm({ ...form, tipoCuenta: e.target.value })}
+                    className="input-field w-full"
+                  >
+                    {TIPOS_CUENTA.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </div>
+              </div>
+              {form.banco && form.templo_id && form.cajaOrigen && (
+                <div className="text-sm bg-green-50 border border-green-300 rounded p-2">
+                  <strong>Nombre que se creará:</strong><br />
+                  <code className="text-green-800">
+                    Banco {form.banco} {templos.find(t => t.id === form.templo_id)?.nombre} - {cajas.find(x => x.valor === form.cajaOrigen)?.nombre || form.cajaOrigen} - {form.tipoCuenta}
+                  </code>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Si es banco pero no eligió templo, ocultar el campo nombre libre */}
           <div className="flex gap-2">
             <button type="submit" className="btn-primary flex items-center gap-2">
               <Save size={18} /> {editandoId ? 'Actualizar' : 'Crear caja'}
