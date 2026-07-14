@@ -28,17 +28,11 @@ import Papa from 'papaparse';
 
 const SYMBOLS = { ARS: '$', USD: 'U$S', CLP: 'CLP $' };
 
-const LABELS = {
-  'adolescentes': 'Adolescentes', 'ciclistas': 'Ciclistas', 'coro': 'Coro',
-  'coro-juvenil': 'Coro Juvenil', 'dorcas': 'Dorcas', 'general': 'General',
-  'jovenes': 'Jóvenes', 'ninos': 'Niños', 'porteras': 'Porteras',
-  'porteros': 'Porteros', 'emisora': 'Emisora', 'cajas': 'Cajas',
-  'reposteria': 'Repostería', 'secretaria': 'Secretaría',
-  'kiosco': 'Kiosco', 'comedor': 'Comedor', 'libreria': 'Librería',
-  'banco-nacion': 'Banco Nación', 'banco-macro': 'Banco Macro',
-  'plazo-fijo': 'Plazo Fijo', 'mercado-pago': 'Mercado Pago',
-  'billetera-virtual': 'Billetera Virtual', 'otro': 'Otro',
-};
+// Helper para cargar cajas dinámicas
+async function fetchCajas() {
+  const { data } = await supabase.from('cajas').select('*').eq('activo', true).order('orden');
+  return data || [];
+}
 
 const TIPOS_TRANSACCION = {
   'efectivo': 'Efectivo', 'deposito': 'Depósito Bancario',
@@ -96,6 +90,7 @@ function rangoPeriodo(periodo, desde, hasta) {
 export default function Reportes() {
   const [movimientos, setMovimientos] = useState([]);
   const [templos, setTemplos] = useState([]);
+  const [cajas, setCajas] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Filtros
@@ -114,18 +109,27 @@ export default function Reportes() {
 
   const loadData = async () => {
     try {
-      const [movs, tempRes] = await Promise.all([
+      const [movs, tempRes, cajasData] = await Promise.all([
         fetchTodosMovimientos(),
         supabase.from('templos').select('*'),
+        fetchCajas(),
       ]);
-      setMovimientos(movs.reverse()); // más recientes primero
+      setMovimientos(movs.reverse());
       setTemplos(tempRes.data || []);
+      setCajas(cajasData);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
   };
+
+  // LABELS derivado del estado cajas
+  const LABELS = useMemo(() => {
+    const l = {};
+    cajas.forEach(c => { l[c.valor] = c.nombre; });
+    return l;
+  }, [cajas]);
 
   const monedasDisponibles = useMemo(() => {
     const set = new Set(movimientos.map(m => m.moneda || 'ARS'));
@@ -299,7 +303,7 @@ export default function Reportes() {
             <label className="block text-xs font-bold text-navy mb-1">Caja</label>
             <select value={cajaFiltro} onChange={(e) => setCajaFiltro(e.target.value)} className="input-field w-full">
               <option value="">Todas</option>
-              {Object.entries(LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              {cajas.map(c => <option key={c.valor} value={c.valor}>{c.nombre}</option>)}
             </select>
           </div>
           <div>
