@@ -1,40 +1,38 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { Plus, Trash2, Edit2 } from 'lucide-react';
+import AdminCajas from './AdminCajas';
 
 export default function Configuracion() {
   const [centrosCostos, setCentrosCostos] = useState([]);
   const [conceptos, setConceptos] = useState([]);
   const [tiposIngresos, setTiposIngresos] = useState([]);
   const [templos, setTemplos] = useState([]);
-  const [cajas, setCajas] = useState([]);
-  
+
   const [newCenter, setNewCenter] = useState('');
   const [newConcept, setNewConcept] = useState('');
+  const [newConceptTipo, setNewConceptTipo] = useState('ingreso');
   const [newType, setNewType] = useState('');
   const [newTemplo, setNewTemplo] = useState('');
-  const [newCaja, setNewCaja] = useState('');
   const [editingId, setEditingId] = useState(null);
+  const [filtroConceptoTipo, setFiltroConceptoTipo] = useState('todos');
 
   useEffect(() => {
     loadConfigData();
   }, []);
 
   const loadConfigData = async () => {
-    const { data: centers } = await supabase.from('centro_costos').select('*');
+    const { data: centers } = await supabase.from('centro_costos').select('*').order('nombre');
     setCentrosCostos(centers || []);
 
-    const { data: conceptosData } = await supabase.from('conceptos').select('*');
+    const { data: conceptosData } = await supabase.from('conceptos').select('*').order('tipo').order('nombre');
     setConceptos(conceptosData || []);
 
-    const { data: types } = await supabase.from('tipos_ingresos').select('*');
+    const { data: types } = await supabase.from('tipos_ingresos').select('*').order('nombre');
     setTiposIngresos(types || []);
 
-    const { data: templosData } = await supabase.from('templos').select('*');
+    const { data: templosData } = await supabase.from('templos').select('*').order('nombre');
     setTemplos(templosData || []);
-
-    const { data: cajasData } = await supabase.from('cajas').select('*');
-    setCajas(cajasData || []);
   };
 
   // Centro de Costos
@@ -57,10 +55,17 @@ export default function Configuracion() {
     }
   };
 
-  // Conceptos
+  // Conceptos (ahora distinguen ingreso/egreso)
   const handleAddConcept = async () => {
     if (!newConcept.trim()) return;
-    await supabase.from('conceptos').insert({ nombre: newConcept, tipo: 'ingreso' });
+    const { error } = await supabase.from('conceptos').insert({
+      nombre: newConcept.trim(),
+      tipo: newConceptTipo,
+    });
+    if (error) {
+      alert(`Error: ${error.message}`);
+      return;
+    }
     setNewConcept('');
     loadConfigData();
   };
@@ -102,20 +107,9 @@ export default function Configuracion() {
     }
   };
 
-  // Cajas
-  const handleAddCaja = async () => {
-    if (!newCaja.trim()) return;
-    await supabase.from('cajas').insert({ nombre: newCaja });
-    setNewCaja('');
-    loadConfigData();
-  };
-
-  const handleDeleteCaja = async (id) => {
-    if (confirm('¿Eliminar caja?')) {
-      await supabase.from('cajas').delete().eq('id', id);
-      loadConfigData();
-    }
-  };
+  const conceptosFiltrados = filtroConceptoTipo === 'todos'
+    ? conceptos
+    : conceptos.filter(c => c.tipo === filtroConceptoTipo);
 
   return (
     <div className="space-y-8">
@@ -159,31 +153,64 @@ export default function Configuracion() {
         </div>
       </div>
 
-      {/* Conceptos */}
+      {/* Conceptos - ahora con tipo */}
       <div className="card border-l-4 border-green-600">
         <h2 className="text-2xl font-bold text-navy mb-4">Conceptos de Movimientos</h2>
-        <div className="flex gap-2 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-4">
           <input
             type="text"
             placeholder="Nuevo concepto"
             value={newConcept}
             onChange={(e) => setNewConcept(e.target.value)}
-            className="input-field flex-1"
+            className="input-field md:col-span-2"
           />
-          <button onClick={handleAddConcept} className="btn-primary flex items-center gap-2">
+          <select
+            value={newConceptTipo}
+            onChange={(e) => setNewConceptTipo(e.target.value)}
+            className="input-field"
+          >
+            <option value="ingreso">💰 Ingreso</option>
+            <option value="egreso">💸 Egreso</option>
+          </select>
+          <button onClick={handleAddConcept} className="btn-primary flex items-center justify-center gap-2">
             <Plus size={20} />
             Agregar
           </button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {conceptos.map((concept) => (
-            <div key={concept.id} className="bg-green-50 p-4 rounded flex justify-between items-center">
-              <span className="font-medium">{concept.nombre}</span>
-              <button onClick={() => handleDeleteConcept(concept.id)} className="text-red-600">
-                <Trash2 size={18} />
-              </button>
-            </div>
+
+        {/* Filtro para ver por tipo */}
+        <div className="flex gap-2 mb-4 bg-gray-100 p-1 rounded-lg inline-flex">
+          {['todos', 'ingreso', 'egreso'].map(t => (
+            <button
+              key={t}
+              onClick={() => setFiltroConceptoTipo(t)}
+              className={`px-4 py-2 rounded-md text-sm font-bold transition ${filtroConceptoTipo === t ? 'bg-navy text-white shadow' : 'text-navy hover:bg-gray-200'}`}
+            >
+              {t === 'todos' && `Todos (${conceptos.length})`}
+              {t === 'ingreso' && `💰 Ingresos (${conceptos.filter(c => c.tipo === 'ingreso').length})`}
+              {t === 'egreso' && `💸 Egresos (${conceptos.filter(c => c.tipo === 'egreso').length})`}
+            </button>
           ))}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {conceptosFiltrados.length === 0 ? (
+            <p className="text-sm text-gray-500 md:col-span-3">Sin conceptos en esta categoría</p>
+          ) : (
+            conceptosFiltrados.map((concept) => (
+              <div key={concept.id} className={`p-4 rounded flex justify-between items-center ${concept.tipo === 'egreso' ? 'bg-red-50' : 'bg-green-50'}`}>
+                <div>
+                  <span className="font-medium">{concept.nombre}</span>
+                  <span className={`ml-2 text-xs px-2 py-1 rounded ${concept.tipo === 'egreso' ? 'bg-red-200 text-red-800' : 'bg-green-200 text-green-800'}`}>
+                    {concept.tipo === 'egreso' ? 'Egreso' : 'Ingreso'}
+                  </span>
+                </div>
+                <button onClick={() => handleDeleteConcept(concept.id)} className="text-red-600">
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -243,32 +270,9 @@ export default function Configuracion() {
         </div>
       </div>
 
-      {/* Cajas */}
+      {/* Cajas y Billeteras (componente completo integrado) */}
       <div className="card border-l-4 border-blue-600">
-        <h2 className="text-2xl font-bold text-navy mb-4">Cajas</h2>
-        <div className="flex gap-2 mb-4">
-          <input
-            type="text"
-            placeholder="Nueva caja"
-            value={newCaja}
-            onChange={(e) => setNewCaja(e.target.value)}
-            className="input-field flex-1"
-          />
-          <button onClick={handleAddCaja} className="btn-primary flex items-center gap-2">
-            <Plus size={20} />
-            Agregar
-          </button>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {cajas.map((caja) => (
-            <div key={caja.id} className="bg-blue-50 p-4 rounded flex justify-between items-center">
-              <span className="font-medium">{caja.nombre}</span>
-              <button onClick={() => handleDeleteCaja(caja.id)} className="text-red-600">
-                <Trash2 size={18} />
-              </button>
-            </div>
-          ))}
-        </div>
+        <AdminCajas />
       </div>
     </div>
   );
