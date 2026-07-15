@@ -46,7 +46,7 @@ export default function Dashboard({ usuario, isOnline, onLogout }) {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-full bg-gray-50">
       <Sidebar
         usuario={usuario}
         activePage={activePage}
