@@ -12,8 +12,8 @@ export default function CambiarPassword({ usuario, onSuccess, onLogout }) {
     e.preventDefault();
     setError('');
 
-    if (password1.length < 8) {
-      return setError('La contraseña debe tener al menos 8 caracteres');
+    if (password1.length < 6) {
+      return setError('La contraseña debe tener al menos 6 caracteres');
     }
     if (password1 !== password2) {
       return setError('Las contraseñas no coinciden');
@@ -70,7 +70,7 @@ export default function CambiarPassword({ usuario, onSuccess, onLogout }) {
                 placeholder="Mínimo 8 caracteres"
                 required
                 autoComplete="new-password"
-                minLength={8}
+                minLength={6}
               />
             </div>
 
@@ -87,7 +87,7 @@ export default function CambiarPassword({ usuario, onSuccess, onLogout }) {
                 placeholder="Repetí la contraseña"
                 required
                 autoComplete="new-password"
-                minLength={8}
+                minLength={6}
               />
             </div>
 
