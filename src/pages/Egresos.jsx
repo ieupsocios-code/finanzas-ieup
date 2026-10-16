@@ -25,6 +25,7 @@ async function fetchTodosMovimientos(tipo = null) {
       .from('movimientos')
       .select('*')
       .order('fecha', { ascending: true })
+      .order('id', { ascending: true })
       .range(from, from + LOTE - 1);
     if (tipo) q = q.eq('tipo', tipo);
     const { data, error } = await q;
@@ -39,6 +40,13 @@ async function fetchTodosMovimientos(tipo = null) {
 
 import { Download, Plus, Settings, Edit2, Trash2, X, Upload, Filter } from 'lucide-react';
 import Papa from 'papaparse';
+
+// Fecha actual en zona horaria Argentina (evita el bug de UTC a partir de las 21hs)
+const hoyAR = () => {
+  const now = new Date();
+  return now.toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
+};
+
 
 
 const PERIODOS_FILTRO = [
@@ -87,6 +95,7 @@ export default function Egresos() {
   const [contarAbierto, setContarAbierto] = useState(false);
   const [transferenciaAbierto, setTransferenciaAbierto] = useState(false);
   const [cajasBD, setCajasBD] = useState([]);
+  const [eventosBD, setEventosBD] = useState([]);
   const [templos, setTemplos] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -124,9 +133,10 @@ export default function Egresos() {
     templo: '',
     moneda: 'ARS',
     tipo_transaccion: 'efectivo',
+    evento_id: '',
     ubicacion: 'general',
     detalle: '',
-    fecha: new Date().toISOString().split('T')[0]
+    fecha: hoyAR()
   });
 
   const monedas = [
@@ -168,6 +178,9 @@ export default function Egresos() {
     const cajas = await fetchCajas();
     setCajasBD(cajas);
 
+    const { data: evs } = await supabase.from('eventos').select('id, nombre').order('nombre');
+    setEventosBD(evs || []);
+
     const { data: conceptosData } = await supabase.from('conceptos').select('*');
     setConceptos(conceptosData || []);
   };
@@ -194,6 +207,7 @@ export default function Egresos() {
         templo_id: formData.templo || null,
         moneda: formData.moneda,
         tipo_transaccion: formData.tipo_transaccion,
+        evento_id: formData.evento_id || null,
         ubicacion: formData.ubicacion,
         detalle: formData.detalle,
         fecha: formData.fecha
@@ -214,6 +228,7 @@ export default function Egresos() {
         templo_id: formData.templo || null,
         moneda: formData.moneda,
         tipo_transaccion: formData.tipo_transaccion,
+        evento_id: formData.evento_id || null,
         ubicacion: formData.ubicacion,
         detalle: formData.detalle,
         tipo: 'egreso',
@@ -229,8 +244,9 @@ export default function Egresos() {
     
     setFormData({ 
       monto: '', concepto: '', templo: '', moneda: 'ARS', 
-      tipo_transaccion: 'efectivo', ubicacion: 'general', 
-      detalle: '', fecha: new Date().toISOString().split('T')[0] 
+      tipo_transaccion: 'efectivo',
+    evento_id: '', ubicacion: 'general', 
+      detalle: '', fecha: hoyAR() 
     });
     setShowForm(false);
     loadData();
@@ -349,7 +365,7 @@ export default function Egresos() {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `egresos-${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `egresos-${hoyAR()}.csv`;
     link.click();
   };
 
@@ -538,8 +554,9 @@ export default function Egresos() {
               if (!showForm) setEditingId(null);
               setFormData({ 
                 monto: '', concepto: '', templo: '', moneda: 'ARS', 
-                tipo_transaccion: 'efectivo', ubicacion: 'general', 
-                detalle: '', fecha: new Date().toISOString().split('T')[0] 
+                tipo_transaccion: 'efectivo',
+    evento_id: '', ubicacion: 'general', 
+                detalle: '', fecha: hoyAR() 
               });
             }}
             className="btn-primary flex items-center gap-2"
@@ -749,6 +766,18 @@ export default function Egresos() {
               className="input-field w-full"
             />
           </div>
+          {eventosBD.length > 0 && (
+            <div className="mt-3">
+              <select
+                value={formData.evento_id}
+                onChange={(e) => setFormData({...formData, evento_id: e.target.value})}
+                className="input-field w-full"
+              >
+                <option value="">🎪 Evento (opcional)</option>
+                {eventosBD.map(ev => <option key={ev.id} value={ev.id}>{ev.nombre}</option>)}
+              </select>
+            </div>
+          )}
 
           <div className="mt-4">
             <input
@@ -804,7 +833,16 @@ export default function Egresos() {
                     </td>
                     <td className="p-3 text-xs">{ubicaciones.find(u => u.value === ing.ubicacion)?.label || '—'}</td>
                     <td className="p-3 text-xs">{ing.templo_id ? templos.find(t => t.id === ing.templo_id)?.nombre || '—' : '—'}</td>
-                    <td className="p-3 text-gray-600">{ing.detalle || '—'}</td>
+                    <td className="p-3 text-gray-600">
+                      <div className="space-y-1">
+                        <span>{ing.detalle || '—'}</span>
+                        {ing.evento_id && eventosBD.find(e => e.id === ing.evento_id) && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-gold bg-opacity-20 text-yellow-800 border border-yellow-300">
+                            🎪 {eventosBD.find(e => e.id === ing.evento_id)?.nombre}
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="p-3 flex gap-2">
                       <button
                         onClick={() => handleEditEgreso(ing)}
